@@ -1,6 +1,11 @@
-package com.example.demo.threads.elevator;
+package com.example.demo.threads.elevator.executors;
 
-import java.util.*;
+import com.example.demo.threads.elevator.ElevatorState;
+
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.NavigableSet;
 
 /**
  * Objects of this class represent individual elevators
@@ -74,7 +79,7 @@ public class Elevator implements Runnable{
      * Move the elevator UP or DOWn
      */
     public void move(){
-        synchronized (ElevatorController.getInstance()){ // Synchronized over the ElevatorController singleton.
+        synchronized (ElevatorController.getInstance()){ // Synchronized over the ThreadElevatorController singleton.
             Iterator<ElevatorState> iter = floorStopsMap.keySet().iterator();
 
             while(iter.hasNext()){
@@ -122,7 +127,7 @@ public class Elevator implements Runnable{
             }
 
             try {
-                // Wait till ElevatorController has scanned the state of all elevators.
+                // Wait till ThreadElevatorController has scanned the state of all elevators.
                 // This helps us to serve any intermediate requests that might come
                 // while elevators are on their respective paths.
                 ElevatorController.getInstance().wait();

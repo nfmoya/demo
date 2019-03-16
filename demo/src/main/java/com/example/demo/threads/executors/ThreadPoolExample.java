@@ -10,7 +10,6 @@ public class ThreadPoolExample {
 //        executeWithSingleThread();
 //        executeWithFixedPool();
 //        executeWithCachedThreadPool();
-        
     }
 
     /**

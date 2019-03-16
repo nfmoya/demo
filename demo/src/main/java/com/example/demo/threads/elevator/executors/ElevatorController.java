@@ -1,7 +1,11 @@
-package com.example.demo.threads.elevator;
+package com.example.demo.threads.elevator.executors;
+
+import com.example.demo.threads.elevator.ElevatorState;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * This is the core component of the system. This class is responsible for
@@ -18,7 +22,7 @@ public final class ElevatorController implements Runnable {
     private static Map<Integer, Elevator> downMovingMap = new HashMap<Integer, Elevator>();
     // STATIONARY elevators are part of UP and DOWN map both.
 
-    private static List<Elevator> elevatorList = new ArrayList<Elevator>(16);
+    private static List<Elevator> elevatorList = new ArrayList<>();
 
     private static final ElevatorController instance = new ElevatorController();
     private ElevatorController(){
@@ -26,7 +30,7 @@ public final class ElevatorController implements Runnable {
             throw new IllegalStateException("Already instantiated");
         }
         setStopController(false);
-        initializeElevators();
+//        initializeElevators();
     }
 
     public static ElevatorController getInstance(){
@@ -36,16 +40,16 @@ public final class ElevatorController implements Runnable {
     /**
      * Select an elevator from the pool of operational elevators that can serve the
      * the request optimally
-     * @param elevatorRequest  Represents the request for an elevator
-     * @return Selected Elevator
+     * @param requestor  Represents the request for an elevator
+     * @return Selected ThreadElevator
      */
-    public synchronized Elevator selectElevator(ElevatorRequest elevatorRequest) {
+    public synchronized Elevator selectElevator(Requestor requestor) {
 
         Elevator elevator = null;
 
-        ElevatorState elevatorState = getRequestedElevatorDirection(elevatorRequest);
-        int requestedFloor = elevatorRequest.getRequestFloor();
-        int targetFloor = elevatorRequest.getTargetFloor();
+        ElevatorState elevatorState = getRequestedElevatorDirection(requestor);
+        int requestedFloor = requestor.getRequestFloor();
+        int targetFloor = requestor.getTargetFloor();
 
         elevator = findElevator(elevatorState, requestedFloor, targetFloor);
 
@@ -56,20 +60,20 @@ public final class ElevatorController implements Runnable {
 
     }
 
-    private static void initializeElevators(){
-        for(int i=0; i<16; i++){
-            Elevator elevator = new Elevator(i);
-            Thread t = new Thread(elevator);
-            t.start();
+    public void initializeElevators(final Integer elevatorNumbers, final Integer maxNumberPersons){
+        ExecutorService ex = Executors.newFixedThreadPool(maxNumberPersons);
+        for(int i=0; i<elevatorNumbers; i++){
+            Elevator threadElevator = new Elevator(i+1);
+            ex.execute(threadElevator);
 
-            elevatorList.add(elevator);
+            elevatorList.add(threadElevator);
         }
     }
 
-    private static ElevatorState getRequestedElevatorDirection(ElevatorRequest elevatorRequest){
+    private static ElevatorState getRequestedElevatorDirection(Requestor requestor){
         ElevatorState elevatorState = null;
-        int requestedFloor = elevatorRequest.getRequestFloor();
-        int targetFloor = elevatorRequest.getTargetFloor();
+        int requestedFloor = requestor.getRequestFloor();
+        int targetFloor = requestor.getTargetFloor();
 
         if(targetFloor - requestedFloor > 0){
             elevatorState = ElevatorState.UP;
@@ -91,7 +95,7 @@ public final class ElevatorController implements Runnable {
         Elevator elevator = null;
 
         // Data structure to hold distance of eligible elevators from the request floor
-        // The keys represent the current distance of an elevator from request floor
+        // The keys represent the current distance of an threadElevator from request floor
         TreeMap<Integer, Integer> sortedKeyMap = new TreeMap<Integer, Integer>();
 
         if(elevatorState.equals(ElevatorState.UP)){
@@ -131,12 +135,12 @@ public final class ElevatorController implements Runnable {
 
         }
 
-        // Instructing the selected elevator to stop/pass by relavent floors
-        ElevatorRequest newRequest = new ElevatorRequest(elevator.getCurrentFloor(), requestedFloor);
+        // Instructing the selected threadElevator to stop/pass by relavent floors
+        Requestor newRequest = new Requestor(elevator.getCurrentFloor(), requestedFloor);
         ElevatorState elevatorDirection = getRequestedElevatorDirection(newRequest);
 
         // helpful if we are moving in opposite direction to than that of request
-        ElevatorRequest newRequest2 = new ElevatorRequest(requestedFloor, targetFloor);
+        Requestor newRequest2 = new Requestor(requestedFloor, targetFloor);
         ElevatorState elevatorDirection2 = getRequestedElevatorDirection(newRequest2);
 
         NavigableSet<Integer> floorSet = elevator.floorStopsMap.get(elevatorDirection);
@@ -162,7 +166,7 @@ public final class ElevatorController implements Runnable {
 
 
     /**
-     * update the state of elevator as soon as it changes the direction
+     * update the state of threadElevator as soon as it changes the direction
      * @param elevator
      */
     public static synchronized void updateElevatorLists(Elevator elevator){
@@ -174,7 +178,7 @@ public final class ElevatorController implements Runnable {
             upMovingMap.remove(elevator.getId());
         } else if (elevator.getElevatorState().equals(ElevatorState.STATIONARY)){
             upMovingMap.put(elevator.getId(), elevator);
-            downMovingMap.put(elevator.getId(),elevator);
+            downMovingMap.put(elevator.getId(), elevator);
         } else if (elevator.getElevatorState().equals(ElevatorState.MAINTAINANCE)){
             upMovingMap.remove(elevator.getId());
             downMovingMap.remove(elevator.getId());
