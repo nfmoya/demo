@@ -1,6 +1,4 @@
-package com.example.demo.threads.elevator.executors;
-
-import com.example.demo.threads.elevator.ElevatorState;
+package com.example.demo.threads.elevator;
 
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -119,7 +117,7 @@ public class Elevator implements Runnable{
                     System.out.println("Elevator ID " + this.id + " | Current floor - " + getCurrentFloor() + " | next move - " + getElevatorState());
 
                     try {
-                        Thread.sleep(1000); // Let people get off the elevator :P
+                        Thread.sleep(1000);
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }

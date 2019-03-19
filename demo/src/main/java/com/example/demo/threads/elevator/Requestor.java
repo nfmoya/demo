@@ -1,4 +1,4 @@
-package com.example.demo.threads.elevator.executors;
+package com.example.demo.threads.elevator;
 
 public class Requestor implements Runnable {
 
@@ -6,15 +6,22 @@ public class Requestor implements Runnable {
     private int targetFloor;
     private Building building;
 
-    public Requestor(Building building,int requestFloor, int targetFloor) {
+    private String requestorName;
+
+    public Requestor(Building building, int requestFloor, int targetFloor, String requestorName) {
         this.requestFloor = requestFloor;
         this.targetFloor = targetFloor;
         this.building = building;
+        this.requestorName = requestorName;
     }
 
     public Requestor(int requestFloor, int targetFloor) {
         this.requestFloor = requestFloor;
         this.targetFloor = targetFloor;
+    }
+
+    public String getRequestorName() {
+        return requestorName;
     }
 
     public int getRequestFloor() {
@@ -27,22 +34,8 @@ public class Requestor implements Runnable {
 
     @Override
     public void run() {
-        try {
+        synchronized (this){
             building.requestElevator(this);
-            Thread.sleep(2000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
         }
-
     }
-
-    /**
-     * Submit the request to the ThreadElevatorController to select the
-     * optimal elevator for this request
-     * @return
-     */
-//    public ThreadElevator submitRequest(){
-//        return ElevatorController.getInstance().selectElevator(this);
-//    }
-
 }

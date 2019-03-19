@@ -1,27 +1,19 @@
-package com.example.demo.threads.elevator.executors;
+package com.example.demo.threads.elevator;
 
-import com.example.demo.threads.elevator.ThreadElevator;
-import org.bouncycastle.util.Times;
-
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 public class Building {
-
-    public String getBuildingName() {
-        return buildingName;
-    }
 
     private String buildingName;
     private Integer elevatorNumbers;
     private Integer floorNumbers;
     private Integer maxNumberPersons;
     ExecutorService ex = Executors.newSingleThreadExecutor();
-    private List<Requestor> requestors = new ArrayList<>();
 
-    private static List<ThreadElevator> threadElevatorList = new ArrayList<>();
     private static ElevatorController elevatorController;
 
     public Building(final String buildingName,
@@ -42,20 +34,23 @@ public class Building {
         ex.execute(elevatorController);
     }
 
-    public void requestElevator(final Requestor requestor) {
+    public synchronized void requestElevator(final Requestor requestor) {
         Runnable task = () -> {
             try {
-                Thread.currentThread().setPriority(Thread.MAX_PRIORITY);
-
-                System.out.println("Welcome to :" + this.buildingName);
-                Thread.sleep(6000);
-                System.out.println("Elevator go " + requestor.getRequestFloor() + " floor to " + requestor.getTargetFloor());
+                System.out.println("********************************************************" +
+                        "\nWelcome to " + this.buildingName + " Mr/Miss " + requestor.getRequestorName());
+                System.out.println("Elevator go " + requestor.getRequestFloor() + " floor to " + requestor.getTargetFloor()
+                        + "\n*************************************************\n ");
+                Thread.sleep(1000);
 
                 Elevator elevator = ElevatorController.getInstance().selectElevator(requestor);
 
-                Thread.sleep(12000);
-                System.out.println("Thanks for you visit");
+                int floorToMove = Math.abs((elevator.getCurrentFloor() - requestor.getRequestFloor())
+                        + requestor.getTargetFloor());
+                long millisToSleep = floorToMove > 5 ? floorToMove * 1300 : floorToMove * 1900;
 
+                Thread.sleep(millisToSleep);
+                System.out.println("Thanks for you visit Mr/Miss: " + requestor.getRequestorName() + "\n");
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }

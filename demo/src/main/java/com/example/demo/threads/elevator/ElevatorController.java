@@ -2,26 +2,28 @@ package com.example.demo.threads.elevator;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * This is the core component of the system. This class is responsible for
  * the complete orchestration of elevators and elevator requests.
  */
-public final class ThreadElevatorController implements Runnable {
+public final class ElevatorController implements Runnable {
 
     private boolean stopController;
 
     // All the UP moving elevators
-    private static Map<Integer, ThreadElevator> upMovingMap = new HashMap<Integer, ThreadElevator>();
+    private static Map<Integer, Elevator> upMovingMap = new HashMap<Integer, Elevator>();
 
     // All the DOWN moving elevators
-    private static Map<Integer, ThreadElevator> downMovingMap = new HashMap<Integer, ThreadElevator>();
+    private static Map<Integer, Elevator> downMovingMap = new HashMap<Integer, Elevator>();
     // STATIONARY elevators are part of UP and DOWN map both.
 
-    private static List<ThreadElevator> threadElevatorList = new ArrayList<ThreadElevator>(16);
+    private static List<Elevator> elevatorList = new ArrayList<>();
 
-    private static final ThreadElevatorController instance = new ThreadElevatorController();
-    private ThreadElevatorController(){
+    private static final ElevatorController instance = new ElevatorController();
+    private ElevatorController(){
         if(instance != null){
             throw new IllegalStateException("Already instantiated");
         }
@@ -29,47 +31,47 @@ public final class ThreadElevatorController implements Runnable {
 //        initializeElevators();
     }
 
-    public static ThreadElevatorController getInstance(){
+    public static ElevatorController getInstance(){
         return instance;
     }
 
     /**
      * Select an elevator from the pool of operational elevators that can serve the
      * the request optimally
-     * @param threadElevatorRequest  Represents the request for an elevator
+     * @param requestor  Represents the request for an elevator
      * @return Selected ThreadElevator
      */
-    public synchronized ThreadElevator selectElevator(ThreadElevatorRequest threadElevatorRequest) {
+    public synchronized Elevator selectElevator(Requestor requestor) {
 
-        ThreadElevator threadElevator = null;
+        Elevator elevator = null;
 
-        ElevatorState elevatorState = getRequestedElevatorDirection(threadElevatorRequest);
-        int requestedFloor = threadElevatorRequest.getRequestFloor();
-        int targetFloor = threadElevatorRequest.getTargetFloor();
+        ElevatorState elevatorState = getRequestedElevatorDirection(requestor);
+        int requestedFloor = requestor.getRequestFloor();
+        int targetFloor = requestor.getTargetFloor();
 
-        threadElevator = findElevator(elevatorState, requestedFloor, targetFloor);
+        elevator = findElevator(elevatorState, requestedFloor, targetFloor);
 
         // So that elevators can start moving again.
         notifyAll();
-        return threadElevator;
+        return elevator;
 
 
     }
 
-    public void initializeElevators(Integer numberElevators){
-        for(int i=0; i<numberElevators; i++){
-            ThreadElevator threadElevator = new ThreadElevator(i+1);
-            Thread t = new Thread(threadElevator);
-            t.start();
+    public void initializeElevators(final Integer elevatorNumbers, final Integer maxNumberPersons){
+        ExecutorService ex = Executors.newFixedThreadPool(maxNumberPersons);
+        for(int i=0; i<elevatorNumbers; i++){
+            Elevator threadElevator = new Elevator(i+1);
+            ex.execute(threadElevator);
 
-            threadElevatorList.add(threadElevator);
+            elevatorList.add(threadElevator);
         }
     }
 
-    private static ElevatorState getRequestedElevatorDirection(ThreadElevatorRequest threadElevatorRequest){
+    private static ElevatorState getRequestedElevatorDirection(Requestor requestor){
         ElevatorState elevatorState = null;
-        int requestedFloor = threadElevatorRequest.getRequestFloor();
-        int targetFloor = threadElevatorRequest.getTargetFloor();
+        int requestedFloor = requestor.getRequestFloor();
+        int targetFloor = requestor.getTargetFloor();
 
         if(targetFloor - requestedFloor > 0){
             elevatorState = ElevatorState.UP;
@@ -87,8 +89,8 @@ public final class ThreadElevatorController implements Runnable {
      * @param targetFloor Floor number where user wants to go
      * @return selected elevator
      */
-    private static ThreadElevator findElevator(ElevatorState elevatorState, int requestedFloor, int targetFloor) {
-        ThreadElevator threadElevator = null;
+    private static Elevator findElevator(ElevatorState elevatorState, int requestedFloor, int targetFloor) {
+        Elevator elevator = null;
 
         // Data structure to hold distance of eligible elevators from the request floor
         // The keys represent the current distance of an threadElevator from request floor
@@ -97,8 +99,8 @@ public final class ThreadElevatorController implements Runnable {
         if(elevatorState.equals(ElevatorState.UP)){
 
             // Let's go over all elevators that are either going UP or are STATIONARY
-            for(Map.Entry<Integer, ThreadElevator> elvMap : upMovingMap.entrySet()){
-                ThreadElevator elv = elvMap.getValue();
+            for(Map.Entry<Integer, Elevator> elvMap : upMovingMap.entrySet()){
+                Elevator elv = elvMap.getValue();
                 Integer distance = requestedFloor - elv.getCurrentFloor();
                 if(distance < 0 && elv.getElevatorState().equals(ElevatorState.UP)){
                     // No point selecting these elevators. They have already passed by our request floor
@@ -110,13 +112,13 @@ public final class ThreadElevatorController implements Runnable {
 
             // TODO - potential NullPointerException
             Integer selectedElevatorId = sortedKeyMap.firstEntry().getValue();
-            threadElevator = upMovingMap.get(selectedElevatorId);
+            elevator = upMovingMap.get(selectedElevatorId);
 
 
         } else if(elevatorState.equals(ElevatorState.DOWN)){
             // Let's go over all elevators that are either going DOWN or are STATIONARY
-            for(Map.Entry<Integer, ThreadElevator> elvMap : downMovingMap.entrySet()){
-                ThreadElevator elv = elvMap.getValue();
+            for(Map.Entry<Integer, Elevator> elvMap : downMovingMap.entrySet()){
+                Elevator elv = elvMap.getValue();
                 Integer distance = elv.getCurrentFloor() - requestedFloor;
                 if(distance < 0 && elv.getElevatorState().equals(ElevatorState.DOWN)){
                     // No point selecting these elevators. They have already passed by our requested floor
@@ -127,57 +129,57 @@ public final class ThreadElevatorController implements Runnable {
             }
             // TODO - potential NullPointerException
             Integer selectedElevatorId = sortedKeyMap.firstEntry().getValue();
-            threadElevator = downMovingMap.get(selectedElevatorId);
+            elevator = downMovingMap.get(selectedElevatorId);
 
         }
 
         // Instructing the selected threadElevator to stop/pass by relavent floors
-        ThreadElevatorRequest newRequest = new ThreadElevatorRequest(threadElevator.getCurrentFloor(), requestedFloor);
+        Requestor newRequest = new Requestor(elevator.getCurrentFloor(), requestedFloor);
         ElevatorState elevatorDirection = getRequestedElevatorDirection(newRequest);
 
         // helpful if we are moving in opposite direction to than that of request
-        ThreadElevatorRequest newRequest2 = new ThreadElevatorRequest(requestedFloor, targetFloor);
+        Requestor newRequest2 = new Requestor(requestedFloor, targetFloor);
         ElevatorState elevatorDirection2 = getRequestedElevatorDirection(newRequest2);
 
-        NavigableSet<Integer> floorSet = threadElevator.floorStopsMap.get(elevatorDirection);
+        NavigableSet<Integer> floorSet = elevator.floorStopsMap.get(elevatorDirection);
         if (floorSet == null) {
             floorSet = new ConcurrentSkipListSet<Integer>();
         }
 
-        floorSet.add(threadElevator.getCurrentFloor());
+        floorSet.add(elevator.getCurrentFloor());
         floorSet.add(requestedFloor);
-        threadElevator.floorStopsMap.put(elevatorDirection, floorSet);
+        elevator.floorStopsMap.put(elevatorDirection, floorSet);
 
-        NavigableSet<Integer> floorSet2 = threadElevator.floorStopsMap.get(elevatorDirection2);
+        NavigableSet<Integer> floorSet2 = elevator.floorStopsMap.get(elevatorDirection2);
         if (floorSet2 == null) {
             floorSet2 = new ConcurrentSkipListSet<Integer>();
         }
 
         floorSet2.add(requestedFloor);
         floorSet2.add(targetFloor);
-        threadElevator.floorStopsMap.put(elevatorDirection2, floorSet2);
+        elevator.floorStopsMap.put(elevatorDirection2, floorSet2);
 
-        return threadElevator;
+        return elevator;
     }
 
 
     /**
      * update the state of threadElevator as soon as it changes the direction
-     * @param threadElevator
+     * @param elevator
      */
-    public static synchronized void updateElevatorLists(ThreadElevator threadElevator){
-        if(threadElevator.getElevatorState().equals(ElevatorState.UP)){
-            upMovingMap.put(threadElevator.getId(), threadElevator);
-            downMovingMap.remove(threadElevator.getId());
-        } else if(threadElevator.getElevatorState().equals(ElevatorState.DOWN)){
-            downMovingMap.put(threadElevator.getId(), threadElevator);
-            upMovingMap.remove(threadElevator.getId());
-        } else if (threadElevator.getElevatorState().equals(ElevatorState.STATIONARY)){
-            upMovingMap.put(threadElevator.getId(), threadElevator);
-            downMovingMap.put(threadElevator.getId(), threadElevator);
-        } else if (threadElevator.getElevatorState().equals(ElevatorState.MAINTAINANCE)){
-            upMovingMap.remove(threadElevator.getId());
-            downMovingMap.remove(threadElevator.getId());
+    public static synchronized void updateElevatorLists(Elevator elevator){
+        if(elevator.getElevatorState().equals(ElevatorState.UP)){
+            upMovingMap.put(elevator.getId(), elevator);
+            downMovingMap.remove(elevator.getId());
+        } else if(elevator.getElevatorState().equals(ElevatorState.DOWN)){
+            downMovingMap.put(elevator.getId(), elevator);
+            upMovingMap.remove(elevator.getId());
+        } else if (elevator.getElevatorState().equals(ElevatorState.STATIONARY)){
+            upMovingMap.put(elevator.getId(), elevator);
+            downMovingMap.put(elevator.getId(), elevator);
+        } else if (elevator.getElevatorState().equals(ElevatorState.MAINTAINANCE)){
+            upMovingMap.remove(elevator.getId());
+            downMovingMap.remove(elevator.getId());
         }
     }
 
@@ -201,8 +203,8 @@ public final class ThreadElevatorController implements Runnable {
 
     }
 
-    public synchronized List<ThreadElevator> getElevatorList() {
-        return threadElevatorList;
+    public synchronized List<Elevator> getElevatorList() {
+        return elevatorList;
     }
 
     public boolean isStopController() {
