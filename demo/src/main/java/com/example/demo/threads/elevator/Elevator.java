@@ -77,7 +77,7 @@ public class Elevator implements Runnable{
      * Move the elevator UP or DOWn
      */
     public void move(){
-        synchronized (ElevatorController.getInstance()){ // Synchronized over the ThreadElevatorController singleton.
+        synchronized (ElevatorController.getInstance()){ // Synchronized over the ElevatorController singleton.
             Iterator<ElevatorState> iter = floorStopsMap.keySet().iterator();
 
             while(iter.hasNext()){
@@ -125,7 +125,7 @@ public class Elevator implements Runnable{
             }
 
             try {
-                // Wait till ThreadElevatorController has scanned the state of all elevators.
+                // Wait till ElevatorController has scanned the state of all elevators.
                 // This helps us to serve any intermediate requests that might come
                 // while elevators are on their respective paths.
                 ElevatorController.getInstance().wait();
